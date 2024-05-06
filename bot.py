@@ -1,5 +1,6 @@
 import os
 import inspect
+import asyncio
 from importlib import import_module
 from base_plugin import Plugin
 
@@ -26,7 +27,7 @@ class Mediator:
     
     def install_one_plugin(self, plugin_class):
         if plugin_class.name in self.plugins.keys():
-            return #already installed
+            return #already installed. Any new plugins need to have unique names.
         for req in plugin_class.requirements:
             self.install_one_plugin(self.initial_plugin_search[req])
         requirements = [self.plugins[req] for req in plugin_class.requirements]
@@ -37,8 +38,14 @@ class Mediator:
         for _, plugin, in self.initial_plugin_search.items():
             self.install_one_plugin(plugin)
 
+    async def main(self):
+        async with asyncio.TaskGroup() as tg:
+            for p in self.plugins.values():
+                if p.needs_own_loop:
+                    tg.create_task(p.loop()) 
+
 
 if __name__ == "__main__":
     m = Mediator()
     m.install_all_plugins()
-    
+    asyncio.run(m.main())
