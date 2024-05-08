@@ -1,3 +1,5 @@
+import asyncio
+
 class Plugin:
     name = "Unspecified Plugin"
     requirements = []
@@ -29,3 +31,18 @@ class Plugin:
     def notify(self, event_type, *args, **kwargs):
         for callback in self.subscribers[event_type]:
             callback(*args, **kwargs)
+
+
+class PluginWithLoop(Plugin):
+    async def main(self):
+        pass
+
+    async def loop(self):
+        # wrapper for main(), that at minimum needs to handle all errors 
+        while True:
+            try:
+                await self.main()
+                break
+            except Exception as e:
+                print(f"Exception caught at top level of {self.name}: {e}")
+                await asyncio.sleep(5)

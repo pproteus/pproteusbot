@@ -2,7 +2,7 @@ import os
 import inspect
 import asyncio
 from importlib import import_module
-from base_plugin import Plugin
+from base_plugin import Plugin, PluginWithLoop
 
 
 class Mediator:
@@ -41,11 +41,16 @@ class Mediator:
     async def main(self):
         async with asyncio.TaskGroup() as tg:
             for p in self.plugins.values():
-                if p.needs_own_loop:
+                if isinstance(p, PluginWithLoop):
                     tg.create_task(p.loop()) 
 
 
 if __name__ == "__main__":
     m = Mediator()
     m.install_all_plugins()
-    asyncio.run(m.main())
+    try:
+        asyncio.run(m.main())
+    except Exception as e:
+        #lower-level modules are responsible for error-handling.
+        #here at the top level, we just care about not crashing the whole bot.
+        print(f"Unhandled exception: {e}")
