@@ -8,11 +8,11 @@ class Plugin:
     subscribers = {}
 
     def __init__(self, mediator, *args, **kwargs):
-        pass
+        self.mediator = mediator
 
     """
     We've got a subcriber/observer design pattern here. Here's how it works:
-    (1) Each plugin maintains a list of requirements it needs, that is, other classes.
+    (1) Each plugin maintains a list of requirements it needs, that is: other classes.
     (2) It also should take each of those as args to its __init__
     (3) At runtime, the Mediator class instantiates one of each plugin
     (4) and then passes plugins the references to their requirements
@@ -28,9 +28,12 @@ class Plugin:
             self.subscribers[event_type] = [callback]
         print(f"Attaching callback to {self.name} for '{event_type}'.")
 
-    def notify(self, event_type, *args, **kwargs):
+    async def notify(self, event_type, *args, **kwargs):
         for callback in self.subscribers[event_type]:
-            callback(*args, **kwargs)
+            if asyncio.iscoroutinefunction(callback):
+                await callback(*args, **kwargs)
+            else:
+                callback(*args, **kwargs)
 
 
 class PluginWithLoop(Plugin):
