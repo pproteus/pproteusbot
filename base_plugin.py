@@ -1,4 +1,5 @@
 import asyncio
+import traceback
 
 class Plugin:
     name = "Unspecified Plugin"
@@ -29,7 +30,7 @@ class Plugin:
         print(f"Attaching callback to {self.name} for '{event_type}'.")
 
     async def notify(self, event_type, *args, **kwargs):
-        for callback in self.subscribers[event_type]:
+        for callback in self.subscribers.get(event_type, ()):
             if asyncio.iscoroutinefunction(callback):
                 await callback(*args, **kwargs)
             else:
@@ -47,5 +48,5 @@ class PluginWithLoop(Plugin):
                 await self.main()
                 break
             except Exception as e:
-                print(f"Exception caught at top level of {self.name}: {e}")
+                print(f"Exception caught at top level of {self.name}: {traceback.format_exc()}")
                 await asyncio.sleep(5)
