@@ -22,7 +22,7 @@ class Mediator:
                     module = import_module(modulename)
 
                     for name, plugin in inspect.getmembers(inspect.getmodule(module), inspect.isclass):
-                        if issubclass(plugin, Plugin) and plugin != Plugin:
+                        if issubclass(plugin, Plugin) and plugin != Plugin and plugin != PluginWithLoop:
                             self.initial_plugin_search[name] = plugin
     
     def install_one_plugin(self, plugin_class):
@@ -31,7 +31,7 @@ class Mediator:
         for req in plugin_class.requirements:
             self.install_one_plugin(self.initial_plugin_search[req])
         requirements = [self.plugins[req] for req in plugin_class.requirements]
-        print(f"Installing plugin: {plugin_class.name}")
+        print(f"Installing plugin: {plugin_class.name} from {plugin_class.__module__}")
         self.plugins[plugin_class.name] = plugin_class(self, *requirements)
     
     def install_all_plugins(self):
@@ -48,9 +48,4 @@ class Mediator:
 if __name__ == "__main__":
     m = Mediator()
     m.install_all_plugins()
-    try:
-        asyncio.run(m.main())
-    except Exception as e:
-        #lower-level modules are responsible for error-handling.
-        #here at the top level, we just care about not crashing the whole bot.
-        print(f"Unhandled exception: {e}")
+    asyncio.run(m.main())
