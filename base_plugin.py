@@ -36,6 +36,9 @@ class Plugin:
             else:
                 callback(*args, **kwargs)
 
+    def fetch_config_filepath(self, filename):
+        return self.mediator.fetch_config_filepath(self, filename)
+
 
 class PluginWithLoop(Plugin):
     async def main(self):

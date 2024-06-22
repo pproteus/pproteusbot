@@ -2,20 +2,24 @@ from base_plugin import PluginWithLoop
 import discord
 import asyncio
 import inspect
-
-#Please be advised that uncaught discord exceptions will end up in the logfile
-# rather than getting caught at the plugin level and printing a traceback
 import logging
-logger = logging.getLogger('discord')
-logger.setLevel(logging.INFO)
-handler = logging.FileHandler(filename='discordlog.txt', encoding='utf-8', mode='w')
-logger.addHandler(handler)
 
 class Discord(PluginWithLoop):
     """This is a wrapper for many parts of discord.py"""
     name = "Discord"
 
     def __init__(self, mediator):
+        super().__init__(mediator)
+
+        #Please be advised that uncaught discord exceptions will end up in the logfile
+        # rather than getting caught at the plugin level and printing a traceback.
+        # Also note that this logfile is in the plugins folder.
+        logger = logging.getLogger('discord')
+        logger.setLevel(logging.INFO)
+        logpath = self.fetch_config_filepath("discordlog.txt")
+        handler = logging.FileHandler(filename=logpath, encoding='utf-8', mode='w')
+        logger.addHandler(handler)
+
         intents = discord.Intents.default()
         intents.message_content = True
         intents.members = True
@@ -28,12 +32,12 @@ class Discord(PluginWithLoop):
         # calling Discord.client.event elsewhere will break things.
         @self.client.event
         async def on_ready():
-            print("Connected to discord\n")
             await self.notify("ready")
             #assume that all slash-command creation was performed in the above step.
             await self.tree.sync()  
             for g in self.client.guilds:
                 await self.tree.sync(guild=g)  
+            print("Connected to discord\n")
 
         @self.client.event
         async def on_message(message):
@@ -46,11 +50,13 @@ class Discord(PluginWithLoop):
         await self.client.start(token)
 
     def get_key(self):
-        #filename = "plugins/config/discord/discord_key.txt"
-        filename  = "plugins/config/discord/discord_key_alternate.txt"
-        with open(filename, "r") as f:
-            return f.read()
-            #provide your own key!!
+        filepath  = self.fetch_config_filepath("discord_key_alternate.txt")
+        with open(filepath, "r") as f:
+            key = f.read()
+            if len(key)>2:
+                return key
+            else:
+                raise ValueError(f"Go to {filepath} and provide your own key!!")
 
     async def send_public_message(self, channel, text, embed=None):
         await channel.send(self.encode_text(text, channel.guild), embed=embed)
@@ -90,7 +96,7 @@ class Discord(PluginWithLoop):
                 
     async def create_slash_command(self, funct, description="description goes here", guildlist=None, **param_descriptions):
         """Takes a function that takes an interaction as its first arg, and returns a string.
-           Creates a slash command which executes that function.
+        Creates a slash command which executes that function.
         This is obviously missing many of the powerful things that discord.py enables,
         but ultimately the benefit is that this endpoint is radically simpler.
         This should be called at "ready", otherwise they won't get registered properly.
