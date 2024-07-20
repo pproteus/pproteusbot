@@ -6,7 +6,7 @@ from base_plugin import Plugin, PluginWithLoop
 
 
 class Mediator:
-    def __init__(self, config_folder="plugins/config", plugins_folder="plugins"):
+    def __init__(self, config_folder, plugins_folder):
         self.config_folder = config_folder
         self.plugins_folder = plugins_folder
         self.plugins = {}
@@ -15,7 +15,7 @@ class Mediator:
         for path, _, files in os.walk(self.plugins_folder):
             for filename in files:
                 if (filename.endswith('.py') and not os.path.basename(filename).startswith('_') ):
-                    newpath = path.replace(".","").lstrip("\\").replace("\\", ".") 
+                    newpath = path.replace(".","").lstrip("\\").replace("\\", ".").replace("/", ".")
                     if len(newpath):
                         modulename = newpath + "." + filename[:-3]
                     else:
@@ -32,7 +32,7 @@ class Mediator:
             else:
                 print("Warning: plugin folder not found. Did you choose the path incorrectly?")
 
-    def install_one_plugin(self, plugin_class):
+    def install_one_plugin(self, plugin_class:Plugin):
         if plugin_class.name in self.plugins.keys():
             return #already installed. Any new plugins need to have unique names.
         for req in plugin_class.requirements:

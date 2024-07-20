@@ -13,12 +13,12 @@ class Discord(PluginWithLoop):
 
         #Please be advised that uncaught discord exceptions will end up in the logfile
         # rather than getting caught at the plugin level and printing a traceback.
-        # Also note that this logfile is in the plugins folder.
         logger = logging.getLogger('discord')
         logger.setLevel(logging.INFO)
         logpath = self.fetch_config_filepath("discordlog.txt")
         handler = logging.FileHandler(filename=logpath, encoding='utf-8', mode='w')
         logger.addHandler(handler)
+        print(f"Please note: discord errors are logged in {logpath}")
 
         intents = discord.Intents.default()
         intents.message_content = True
@@ -43,6 +43,11 @@ class Discord(PluginWithLoop):
         async def on_message(message):
             if message.author != self.client.user:
                 await self.notify("message", message=message)
+
+        @self.client.event
+        async def on_raw_reaction_add(payload):
+            if payload.user_id != self.client.user.id:
+                await self.notify("reaction", payload=payload)
     
 
     async def main(self):
@@ -59,18 +64,21 @@ class Discord(PluginWithLoop):
                 raise ValueError(f"Go to {filepath} and provide your own key!!")
 
     async def send_public_message(self, channel, text, embed=None):
-        await channel.send(self.encode_text(text, channel.guild), embed=embed)
+        message = await channel.send(self.encode_text(text, channel.guild), embed=embed)
+        return message
 
     async def send_pm(self, recipient, text, file=None, embed=None):
         if recipient.dm_channel is None:
             await recipient.create_dm()
         if file is not None:
             file = discord.File(file)
-        await recipient.dm_channel.send(self.encode_text(text, None), file=file, embed=embed)
+        message = await recipient.dm_channel.send(self.encode_text(text, None), file=file, embed=embed)
+        return message
 
     def encode_text(self, text, target_server=None):
         """ Take a literal string and convert it to a form better-suited for discord."""
-        return text.replace("*", "\\*").replace("_", "\\_") 
+        text = text.replace("*", "\\*").replace("_", "\\_")
+        return text
         #TODO: handle both kinds of emojis, and @s
     
     def fetch_server_from_string(self, server_string):
@@ -94,6 +102,10 @@ class Discord(PluginWithLoop):
                 if member.name == member_string:
                     return member
                 
+    async def create_thread(self, root_message, thread_name):
+        """Given a message object, create a thread from it."""
+        await root_message.create_thread(name=thread_name, auto_archive_duration=60*24*3)
+                
     async def create_slash_command(self, funct, description="description goes here", guildlist=None, **param_descriptions):
         """Takes a function that takes an interaction as its first arg, and returns a string.
         Creates a slash command which executes that function.
@@ -101,6 +113,7 @@ class Discord(PluginWithLoop):
         but ultimately the benefit is that this endpoint is radically simpler.
         This should be called at "ready", otherwise they won't get registered properly.
         If guildlist is None, then the command is applied to all guilds individually.
+        Otherwise, to get a global command, use the empty list.
         To allow enforcement per (one of a limited list of options), it is recommend to use 
          `typing.Literal` or `discord.app_commands.Range` in the annotation.
         Positional arguments are not supported."""
@@ -108,8 +121,11 @@ class Discord(PluginWithLoop):
         import functools
         if guildlist is None:
             guildlist = self.client.guilds
-        print(f"Creating slash command '{funct.__name__}' for {', '.join([i.name for i in guildlist])}")
-        @self.tree.command(name=funct.__name__, description=description,guilds=guildlist)
+        if guildlist:
+            print(f"Creating slash command '{funct.__name__}' for {', '.join([i.name for i in guildlist])}")
+        else:
+            print(f"Creating slash command '{funct.__name__}' as a global command")
+        @self.tree.command(name=funct.__name__, description=description, guilds=guildlist)
         @discord.app_commands.describe(**param_descriptions)
         @functools.wraps(funct)
         async def wrapper(interaction: discord.Interaction, *args, **kwargs):
